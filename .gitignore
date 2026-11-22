@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Datasets & Large Files
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+
+# Model Checkpoints & Weights
+models/
+*.bin
+*.pt
+*.safetensors
+*.gguf
+*.onnx
+experiments/logs/
+experiments/runs/
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Frontend build & dependencies
+node_modules/
+dist/
+.vite/
+
+# Pytest / Test Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data & databases
+reviews.json
+*test_reviews.json
+
+# Environment variables
+.env
+.env.local
+
