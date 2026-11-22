@@ -1,0 +1,20 @@
+fastapi==0.135.3
+uvicorn[standard]==0.44.0
+pydantic==2.12.4
+pydantic-settings==2.12.0
+httpx==0.28.1
+requests==2.32.5
+python-dotenv==1.1.0
+pytest==9.1.1
+pytest-asyncio==0.24.0
+httpx==0.28.1
+
+# Optional — uncomment to enable real model engines
+# openai>=1.0.0
+# anthropic>=0.20.0
+# transformers>=4.40.0
+# torch>=2.2.0
+# peft>=0.10.0
+# scikit-learn>=1.4.0
+# rouge-score>=0.1.2
+# sacrebleu>=2.4.0
