@@ -196,8 +196,21 @@ def parse_model_output(
     """Parse model text output into structured comments."""
     if not raw or not raw.strip():
         return []
+    # If the output is a valid JSON object or array, parse strictly via JSON
+    clean = re.sub(r"```(?:json)?", "", raw).strip()
+    if clean.startswith("{") or clean.startswith("["):
+        try:
+            parsed = json.loads(clean)
+            # If JSON parsed successfully and findings/comments is an empty list, respect that
+            if isinstance(parsed, dict) and any(k in parsed and parsed[k] == [] for k in ["findings", "comments", "review_comments", "reviews"]):
+                return []
+            if isinstance(parsed, list) and len(parsed) == 0:
+                return []
+        except Exception:
+            pass
+
     comments = _parse_json_comments(raw, max_comments, filename=filename)
-    if not comments:
+    if not comments and not (clean.startswith("{") or clean.startswith("[")):
         comments = _parse_plain_comments(raw, max_comments, filename=filename)
     return comments
 
