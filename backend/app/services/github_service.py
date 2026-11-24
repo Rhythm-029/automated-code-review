@@ -26,12 +26,10 @@ def _parse_repo_url(url: str) -> Tuple[str, str]:
     - owner/repo
     """
     clean = url.strip().rstrip("/")
-    # Handle direct owner/repo format without protocol (e.g. facebook/react)
     if not clean.startswith("http") and not clean.startswith("git@") and clean.count("/") == 1:
         parts = clean.split("/")
         return parts[0].strip(), parts[1].strip().removesuffix(".git")
 
-    # Match github.com/owner/repo
     match = re.search(r"github\.com[/:]([^/]+)/([^/\.]+)", clean)
     if not match:
         raise ValueError(
@@ -41,8 +39,24 @@ def _parse_repo_url(url: str) -> Tuple[str, str]:
     return match.group(1).strip(), match.group(2).strip().removesuffix(".git")
 
 
+def parse_pr_url(url: str) -> Tuple[str, str, int]:
+    """
+    Parse a full PR URL into (owner, repo, pr_number).
+    e.g. https://github.com/facebook/react/pull/123 -> ("facebook", "react", 123)
+    """
+    clean = url.strip().rstrip("/")
+    match = re.search(r"github\.com[/:]([^/]+)/([^/]+)/pull/(\d+)", clean)
+    if not match:
+        raise ValueError(
+            f"Invalid GitHub Pull Request URL: '{url}'. "
+            "Expected format: https://github.com/owner/repo/pull/NUMBER"
+        )
+    return match.group(1).strip(), match.group(2).strip().removesuffix(".git"), int(match.group(3))
+
+
 class GitHubService:
     parse_repo_url = staticmethod(_parse_repo_url)
+    parse_pr_url = staticmethod(parse_pr_url)
 
     def __init__(self, token: Optional[str] = None) -> None:
         self._token = token.strip() if token and token.strip() else None
@@ -71,7 +85,6 @@ class GitHubService:
         without logging the secret token itself.
         """
         if not self._token:
-            # Unauthenticated: probe rate limit for public access
             try:
                 r = self._client.get("/rate_limit")
                 core = r.json().get("resources", {}).get("core", {}) if r.status_code == 200 else {}
@@ -135,6 +148,22 @@ class GitHubService:
     def _get(self, path: str) -> dict | list:
         try:
             resp = self._client.get(path)
+            # If authenticated request failed due to bad/expired token, retry unauthenticated
+            if resp.status_code in (401, 403) and self._token:
+                logger.warning("GitHub request with token failed (%s). Retrying unauthenticated...", resp.status_code)
+                with httpx.Client(
+                    base_url=GITHUB_API,
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                        "User-Agent": "Automated-Code-Review-App",
+                    },
+                    timeout=30.0,
+                    follow_redirects=True,
+                ) as anon_client:
+                    anon_resp = anon_client.get(path)
+                    if anon_resp.status_code == 200:
+                        return anon_resp.json()
         except httpx.ConnectError as err:
             raise RuntimeError(f"Network error connecting to GitHub API: {err}") from err
         except httpx.TimeoutException as err:
@@ -152,10 +181,10 @@ class GitHubService:
     def fetch_pull_request(self, repo_url: str, pr_number: int) -> GitHubPRInfo:
         owner, repo = _parse_repo_url(repo_url)
 
-        pr_data: dict = self._get(f"/repos/{owner}/{repo}/pulls/{pr_number}")  # type: ignore
+        pr_data: dict = self._get(f"/repos/{owner}/{repo}/pulls/{pr_number}")
         total_changed = int(pr_data.get("changed_files", 0))
 
-        # Paginate through all changed files (GitHub provides up to 100 per page, up to 3000 max)
+        # Paginate through all changed files
         files_data: list = []
         page = 1
         per_page = 100
@@ -167,7 +196,7 @@ class GitHubService:
             if len(batch) < per_page:
                 break
             page += 1
-            if page > 30:  # safety bound to prevent infinite loops (GitHub max 3,000 files)
+            if page > 30:
                 break
 
         files: List[GitHubPRFile] = []
@@ -178,17 +207,23 @@ class GitHubService:
                     status=f.get("status", ""),
                     additions=f.get("additions", 0),
                     deletions=f.get("deletions", 0),
-                    patch=f.get("patch"),  # may be None for binary or large files
+                    patch=f.get("patch"),
                 )
             )
+
+        base_data = pr_data.get("base", {})
+        head_data = pr_data.get("head", {})
 
         return GitHubPRInfo(
             title=pr_data.get("title", ""),
             number=pr_number,
             state=pr_data.get("state", ""),
             author=pr_data.get("user", {}).get("login", "unknown"),
-            base_branch=pr_data.get("base", {}).get("ref", ""),
-            head_branch=pr_data.get("head", {}).get("ref", ""),
+            base_branch=base_data.get("ref", ""),
+            head_branch=head_data.get("ref", ""),
+            base_sha=base_data.get("sha"),
+            head_sha=head_data.get("sha"),
+            description=pr_data.get("body"),
             files=files,
             total_changed_files=total_changed if total_changed > 0 else len(files),
             total_fetched_files=len(files),

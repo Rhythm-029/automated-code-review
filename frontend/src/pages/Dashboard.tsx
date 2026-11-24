@@ -72,7 +72,7 @@ export function Dashboard({ onNavigate }: Props) {
   const [activeTab, setActiveTab] = useState<'manual' | 'github'>('manual');
   const [patchCode, setPatchCode] = useState(SAMPLE_DIFF_PYTHON);
   const [selectedLanguage, setSelectedLanguage] = useState('Python');
-  const [selectedEngine, setSelectedEngine] = useState('ollama');
+  const [selectedEngine, setSelectedEngine] = useState('groq');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [maxComments, setMaxComments] = useState(5);
 

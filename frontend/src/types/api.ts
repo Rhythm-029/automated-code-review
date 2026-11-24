@@ -12,6 +12,15 @@ export type Category =
   | 'general';
 export type EngineMode = 'real_model' | 'demo';
 
+export interface VerificationDetail {
+  is_verified: boolean;
+  grounding_score: number;
+  evidence_found: boolean;
+  identifiers_verified: string[];
+  unverified_identifiers: string[];
+  verification_notes?: string | null;
+}
+
 export interface ReviewComment {
   title: string;
   body: string;
@@ -19,9 +28,12 @@ export interface ReviewComment {
   category: Category;
   suggestion?: string | null;
   line?: number | null;
+  end_line?: number | null;
   file_path?: string | null;
   code_snippet?: string | null;
   confidence?: number | null;
+  evidence_assessment?: string | null;
+  verification?: VerificationDetail | null;
 }
 
 export interface ReviewRequest {
@@ -29,16 +41,28 @@ export interface ReviewRequest {
   oldf?: string;
   engine?: string;
   max_comments?: number;
+  language?: string;
+  verify_hallucinations?: boolean;
 }
 
 export interface ReviewResponse {
   review_id: string;
   status: string;
+  summary?: string | null;
+  language?: string | null;
   engine: string;
   mode: EngineMode;
   duration_ms: number;
   patch_chars: number;
+  files_analyzed: number;
+  files_skipped: number;
+  lines_analyzed: number;
   comments: ReviewComment[];
+  suppressed_findings: number;
+  severity_counts: Record<string, number>;
+  coverage?: Record<string, unknown>;
+  verification?: Record<string, unknown>;
+  limitations?: string[];
   created_at: string;
 }
 
@@ -49,8 +73,11 @@ export interface StoredReview {
   duration_ms: number;
   patch_chars: number;
   patch_preview: string;
+  summary?: string | null;
   comments: ReviewComment[];
   comment_count: number;
+  suppressed_count: number;
+  severity_counts: Record<string, number>;
   created_at: string;
 }
 
@@ -63,11 +90,19 @@ export interface ModelStatus {
   training_status: string;
   configuration_errors: string[];
   notes: string[];
+  groq_status?: {
+    model: string;
+    configured: boolean;
+    provider?: string;
+    speed?: string;
+  } | null;
 }
 
 export interface DashboardStats {
   total_reviews: number;
   total_comments: number;
+  total_suppressed: number;
+  avg_processing_time_ms: number;
   engine_breakdown: Record<string, number>;
   recent_reviews: StoredReview[];
   model_status: ModelStatus;
@@ -84,8 +119,9 @@ export interface GitHubTokenStatus {
 }
 
 export interface GitHubPRRequest {
-  repo_url: string;
-  pr_number: number;
+  pr_url?: string;
+  repo_url?: string;
+  pr_number?: number;
   engine?: string;
   max_comments?: number;
   max_files?: number | null;
@@ -113,6 +149,9 @@ export interface GitHubPRInfo {
   author: string;
   base_branch: string;
   head_branch: string;
+  base_sha?: string | null;
+  head_sha?: string | null;
+  description?: string | null;
   files: GitHubPRFile[];
   total_changed_files: number;
   total_fetched_files: number;
@@ -121,11 +160,14 @@ export interface GitHubPRInfo {
 
 export interface GitHubReviewResponse {
   pr_info: GitHubPRInfo;
+  summary?: string | null;
   total_files_changed: number;
   total_files_fetched: number;
   total_files_reviewed: number;
   skipped_files: GitHubSkippedFile[];
   file_reviews: ReviewResponse[];
+  severity_counts: Record<string, number>;
+  total_suppressed_findings: number;
   engine_used?: string;
   token_authenticated?: boolean;
 }

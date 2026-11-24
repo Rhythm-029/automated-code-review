@@ -24,7 +24,8 @@ import { CommentCard } from '../components/CommentCard';
 export function GitHubReviewPage() {
   const [repoUrl, setRepoUrl] = useState('');
   const [prNumber, setPrNumber] = useState('');
-  const [engine, setEngine] = useState<'ollama' | 'demo'>('ollama');
+  const [prUrl, setPrUrl] = useState('');
+  const [engine, setEngine] = useState<'groq' | 'ollama' | 'demo'>('groq');
   const [fileLimitSelection, setFileLimitSelection] = useState<string>('3');
   const [tokenStatus, setTokenStatus] = useState<GitHubTokenStatus | null>(null);
   const [tokenLoading, setTokenLoading] = useState<boolean>(true);
@@ -72,6 +73,7 @@ export function GitHubReviewPage() {
   }, [loading]);
 
   const setSamplePR = (repo: string, num: number) => {
+    setPrUrl(`https://github.com/${repo}/pull/${num}`);
     setRepoUrl(repo);
     setPrNumber(String(num));
     setError(null);
@@ -82,13 +84,8 @@ export function GitHubReviewPage() {
   const showDurationWarning = isAllFiles || numericMaxFiles > 3;
 
   const handleSubmit = async () => {
-    if (!repoUrl.trim() || !prNumber.trim()) {
-      setError('Please enter a repository URL and pull request number.');
-      return;
-    }
-    const num = parseInt(prNumber, 10);
-    if (isNaN(num) || num <= 0) {
-      setError('Pull request number must be a positive integer.');
+    if (!prUrl.trim() && (!repoUrl.trim() || !prNumber.trim())) {
+      setError('Please enter either a full GitHub PR URL, or both repository URL and pull request number.');
       return;
     }
 
@@ -97,8 +94,10 @@ export function GitHubReviewPage() {
     setResult(null);
 
     try {
+      const num = prNumber.trim() ? parseInt(prNumber, 10) : undefined;
       const res = await reviewGitHubPR({
-        repo_url: repoUrl.trim(),
+        pr_url: prUrl.trim() || undefined,
+        repo_url: repoUrl.trim() || undefined,
         pr_number: num,
         engine,
         max_comments: 5,
@@ -217,6 +216,23 @@ export function GitHubReviewPage() {
         </div>
 
         <div className="panel-card-body">
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Full Pull Request URL (or specify repo & PR # below)</label>
+            <input
+              type="text"
+              className="input-text-modern"
+              value={prUrl}
+              onChange={(e) => {
+                setPrUrl(e.target.value);
+                const m = e.target.value.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+                if (m) {
+                  setRepoUrl(`${m[1]}/${m[2]}`);
+                  setPrNumber(m[3]);
+                }
+              }}
+              placeholder="https://github.com/owner/repository/pull/123"
+            />
+          </div>
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Repository URL or owner/repo</label>

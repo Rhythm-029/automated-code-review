@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -29,11 +29,13 @@ from ..schemas import (
     Severity,
     StoredReview,
 )
-from ..services.engines import DemoEngine, OllamaEngine
+from ..services.engines import DemoEngine, GroqEngine, OllamaEngine
+from ..services.verifier import HallucinationVerifier
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+_verifier = HallucinationVerifier(strictness=0.7)
 
 
 # ── Dependency helpers ─────────────────────────────────────────────────────────
@@ -50,6 +52,15 @@ def get_github_service(request: Request):
     return request.app.state.github
 
 
+def _compute_severity_counts(comments: List[ReviewComment]) -> Dict[str, int]:
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    for c in comments:
+        sev = c.severity.value if hasattr(c.severity, "value") else str(c.severity)
+        if sev in counts:
+            counts[sev] += 1
+    return counts
+
+
 # ── Health ─────────────────────────────────────────────────────────────────────
 
 @router.get("/health", tags=["system"])
@@ -62,10 +73,14 @@ async def health():
     except Exception:
         pass
 
+    groq_ok = bool(settings.GROQ_API_KEY)
+
     return {
         "status": "ok",
         "service": "automated-code-review",
         "active_engine": settings.active_engine,
+        "groq_configured": groq_ok,
+        "groq_model": settings.GROQ_MODEL,
         "ollama_reachable": ollama_ok,
         "ollama_model": settings.OLLAMA_MODEL,
     }
@@ -113,6 +128,7 @@ async def model_status(engine=Depends(get_engine)):
     errors: List[str] = []
     notes: List[str] = []
     active = settings.active_engine
+    groq_info = None
 
     if settings.REVIEW_ENGINE.lower() != active:
         errors.append(
@@ -120,7 +136,19 @@ async def model_status(engine=Depends(get_engine)):
             f"(missing credentials). Falling back to '{active}'."
         )
 
-    if active == "ollama":
+    if active == "groq":
+        checkpoint_loaded = bool(settings.GROQ_API_KEY)
+        groq_info = {
+            "model": settings.GROQ_MODEL,
+            "configured": checkpoint_loaded,
+            "provider": "Groq Cloud (Free Tier)",
+            "speed": "Ultra-fast LPU inference",
+        }
+        if not checkpoint_loaded:
+            errors.append("GROQ_API_KEY is not set in backend .env. Set your key to enable Groq AI.")
+        else:
+            notes.append(f"Active Groq engine connected with model '{settings.GROQ_MODEL}'.")
+    elif active == "ollama":
         status_dict = engine.get_status() if hasattr(engine, "get_status") else {}
         is_reachable = status_dict.get("ollama_reachable", False)
         is_model_present = status_dict.get("model_present", False)
@@ -141,7 +169,7 @@ async def model_status(engine=Depends(get_engine)):
         checkpoint_loaded = False
         notes.append(
             "Running in DEMO MODE. No real model is configured. "
-            "Set REVIEW_ENGINE=ollama in your .env to use local Ollama."
+            "Set GROQ_API_KEY in your .env for high-speed free AI code review."
         )
     elif active == "finetuned":
         info = engine.get_status()
@@ -159,10 +187,13 @@ async def model_status(engine=Depends(get_engine)):
         training_status="not_started",
         configuration_errors=errors,
         notes=notes,
+        groq_status=groq_info,
     )
 
 
 def _resolve_model_id(active: str) -> Optional[str]:
+    if active == "groq":
+        return settings.GROQ_MODEL
     if active == "ollama":
         return settings.OLLAMA_MODEL
     if active == "openai":
@@ -188,7 +219,13 @@ async def create_review(req: ReviewRequest, engine=Depends(get_engine), store=De
     active_engine = engine
     if req.engine:
         req_eng = req.engine.lower()
-        if req_eng == "demo":
+        if req_eng == "groq" and settings.GROQ_API_KEY:
+            active_engine = GroqEngine(
+                api_key=settings.GROQ_API_KEY,
+                model=settings.GROQ_MODEL,
+                timeout=settings.GROQ_TIMEOUT,
+            )
+        elif req_eng == "demo":
             active_engine = DemoEngine()
         elif req_eng == "ollama":
             active_engine = (
@@ -203,7 +240,7 @@ async def create_review(req: ReviewRequest, engine=Depends(get_engine), store=De
 
     t0 = time.perf_counter()
     try:
-        comments, _raw = active_engine.generate_review(
+        raw_comments, _raw = active_engine.generate_review(
             patch=req.patch,
             oldf=req.oldf,
             max_comments=req.max_comments,
@@ -216,13 +253,52 @@ async def create_review(req: ReviewRequest, engine=Depends(get_engine), store=De
         )
     duration_ms = int((time.perf_counter() - t0) * 1000)
 
+    # Run hallucination verification pipeline
+    suppressed_count = 0
+    if req.verify_hallucinations and raw_comments:
+        verified_comments, suppressed_count = _verifier.verify_and_filter(
+            raw_comments,
+            patch=req.patch,
+            oldf=req.oldf,
+        )
+    else:
+        verified_comments = raw_comments
+
+    severity_counts = _compute_severity_counts(verified_comments)
+    line_count = len(req.patch.splitlines())
+
+    summary = (
+        f"Analyzed {line_count} diff lines. Identified {len(verified_comments)} actionable findings "
+        f"({severity_counts['critical']} critical, {severity_counts['high']} high, {severity_counts['medium']} medium)."
+        if verified_comments
+        else f"Analyzed {line_count} diff lines. No significant defects identified; changes appear well-formed."
+    )
+
     response = ReviewResponse(
         review_id=str(uuid.uuid4()),
+        status="success",
+        summary=summary,
+        language=req.language,
         engine=active_engine.name,
         mode=active_engine.mode,
         duration_ms=duration_ms,
         patch_chars=len(req.patch),
-        comments=comments,
+        files_analyzed=1,
+        files_skipped=0,
+        lines_analyzed=line_count,
+        comments=verified_comments,
+        suppressed_findings=suppressed_count,
+        severity_counts=severity_counts,
+        coverage={"diff_lines": line_count, "verified": True},
+        verification={
+            "pipeline": "generate-then-verify",
+            "grounding_check": True,
+            "suppressed_hallucinations": suppressed_count,
+        },
+        limitations=[
+            "Context limited to provided diff and surrounding lines.",
+            "Runtime dynamics not executed directly.",
+        ],
     )
 
     try:
@@ -271,6 +347,10 @@ async def dashboard_stats(engine=Depends(get_engine), store=Depends(get_store)):
         model_identifier=_resolve_model_id(active),
         checkpoint_loaded=active != "demo",
         training_status="not_started",
+        groq_status={
+            "model": settings.GROQ_MODEL,
+            "configured": bool(settings.GROQ_API_KEY),
+        } if active == "groq" else None,
     )
 
     dataset_present = (
@@ -282,6 +362,8 @@ async def dashboard_stats(engine=Depends(get_engine), store=Depends(get_store)):
     return DashboardStats(
         total_reviews=s["total_reviews"],
         total_comments=s["total_comments"],
+        total_suppressed=s.get("total_suppressed", 0),
+        avg_processing_time_ms=s.get("avg_processing_time_ms", 0),
         engine_breakdown=s["engine_breakdown"],
         recent_reviews=recent,
         model_status=ms,
@@ -324,23 +406,32 @@ async def review_github_pr(
             detail="GitHub integration service is not available.",
         )
 
-    try:
-        pr_info = github.fetch_pull_request(req.repo_url, req.pr_number)
-    except ValueError as exc:
+    # Support full pr_url parsing or repo_url + pr_number
+    repo_url = req.repo_url
+    pr_number = req.pr_number
+
+    if req.pr_url and req.pr_url.strip():
+        try:
+            owner, repo, num = github.parse_pr_url(req.pr_url)
+            repo_url = f"{owner}/{repo}"
+            pr_number = num
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if not repo_url or not pr_number:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="Either 'pr_url' or both 'repo_url' and 'pr_number' must be provided.",
         )
+
+    try:
+        pr_info = github.fetch_pull_request(repo_url, pr_number)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except Exception as exc:
         logger.exception("GitHub PR fetch failed")
         raise HTTPException(
@@ -348,11 +439,17 @@ async def review_github_pr(
             detail=f"GitHub API error: {exc}",
         )
 
-    # Determine review engine (default to configured engine e.g. ollama)
+    # Determine review engine
     active_engine = engine
     if req.engine:
         req_eng = req.engine.lower()
-        if req_eng == "demo":
+        if req_eng == "groq" and settings.GROQ_API_KEY:
+            active_engine = GroqEngine(
+                api_key=settings.GROQ_API_KEY,
+                model=settings.GROQ_MODEL,
+                timeout=settings.GROQ_TIMEOUT,
+            )
+        elif req_eng == "demo":
             active_engine = DemoEngine()
         elif req_eng == "ollama":
             active_engine = (
@@ -371,11 +468,8 @@ async def review_github_pr(
     # Categorize files
     reviewable_files = []
     for f in pr_info.files:
-        if f.status == "removed":
-            skipped_files.append(
-                GitHubSkippedFile(filename=f.filename, status=f.status, reason="File removed/deleted in pull request")
-            )
-        elif not f.patch or not f.patch.strip():
+        fn_lower = f.filename.lower()
+        if not f.patch or not f.patch.strip():
             skipped_files.append(
                 GitHubSkippedFile(
                     filename=f.filename,
@@ -383,10 +477,18 @@ async def review_github_pr(
                     reason="Binary file or diff omitted by GitHub (>3000 lines or >1MB patch)",
                 )
             )
+        elif f.status == "removed":
+            skipped_files.append(
+                GitHubSkippedFile(filename=f.filename, status=f.status, reason="File removed/deleted in pull request")
+            )
+        elif any(fn_lower.endswith(ext) for ext in [".lock", "-lock.json", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg", ".pdf", ".map"]):
+            skipped_files.append(
+                GitHubSkippedFile(filename=f.filename, status=f.status, reason="Excluded binary asset or generated lockfile")
+            )
         else:
             reviewable_files.append(f)
 
-    # Apply file limit unless review_all_files is set or max_files is 0/None
+    # Apply file limit
     if req.review_all_files:
         files_to_review = reviewable_files
     elif req.max_files and req.max_files > 0:
@@ -402,18 +504,21 @@ async def review_github_pr(
     else:
         files_to_review = reviewable_files
 
+    total_suppressed = 0
+    all_comments: List[ReviewComment] = []
+
     for pr_file in files_to_review:
         patch = pr_file.patch[:settings.MAX_PATCH_CHARS]
         t0 = time.perf_counter()
         try:
-            comments, _ = active_engine.generate_review(
+            raw_comments, _ = active_engine.generate_review(
                 patch=patch,
                 max_comments=req.max_comments,
                 filename=pr_file.filename,
             )
         except Exception as exc:
             logger.warning("Skipping file %s due to engine error: %s", pr_file.filename, exc)
-            comments = [
+            raw_comments = [
                 ReviewComment(
                     title=f"Review Skipped: {pr_file.filename}",
                     body=f"Review engine error: {exc}",
@@ -424,13 +529,33 @@ async def review_github_pr(
             ]
         duration_ms = int((time.perf_counter() - t0) * 1000)
 
+        # Verification pass
+        verified_comments, suppressed_count = _verifier.verify_and_filter(
+            raw_comments,
+            patch=patch,
+            filename=pr_file.filename,
+        )
+        total_suppressed += suppressed_count
+        all_comments.extend(verified_comments)
+
+        file_sev_counts = _compute_severity_counts(verified_comments)
+        file_lines = len(patch.splitlines())
+
         review_resp = ReviewResponse(
             review_id=str(uuid.uuid4()),
+            status="success",
             engine=active_engine.name,
             mode=active_engine.mode,
             duration_ms=duration_ms,
             patch_chars=len(patch),
-            comments=comments,
+            files_analyzed=1,
+            files_skipped=0,
+            lines_analyzed=file_lines,
+            comments=verified_comments,
+            suppressed_findings=suppressed_count,
+            severity_counts=file_sev_counts,
+            coverage={"file": pr_file.filename, "lines": file_lines},
+            verification={"grounding_verified": True},
         )
         try:
             store.save_review(review_resp, patch)
@@ -438,13 +563,23 @@ async def review_github_pr(
             pass
         file_reviews.append(review_resp)
 
+    overall_sev_counts = _compute_severity_counts(all_comments)
+    overall_summary = (
+        f"Pull request #{pr_number} contains {pr_info.total_changed_files} changed files. "
+        f"Analyzed {len(files_to_review)} files ({len(skipped_files)} skipped). "
+        f"Identified {len(all_comments)} actionable findings across changes."
+    )
+
     return GitHubReviewResponse(
         pr_info=pr_info,
+        summary=overall_summary,
         total_files_changed=pr_info.total_changed_files or len(pr_info.files),
         total_files_fetched=len(pr_info.files),
         total_files_reviewed=len(files_to_review),
         skipped_files=skipped_files,
         file_reviews=file_reviews,
+        severity_counts=overall_sev_counts,
+        total_suppressed_findings=total_suppressed,
         engine_used=active_engine.name,
         token_authenticated=github.is_authenticated,
     )

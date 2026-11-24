@@ -38,7 +38,7 @@ export function ReviewWorkspace() {
   const [patch, setPatch] = useState('');
   const [oldf, setOldf] = useState('');
   const [showOldf, setShowOldf] = useState(false);
-  const [engine, setEngine] = useState('ollama');
+  const [engine, setEngine] = useState('groq');
   const [maxComments, setMaxComments] = useState(5);
   const [result, setResult] = useState<ReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);

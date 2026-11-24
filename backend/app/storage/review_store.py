@@ -47,14 +47,16 @@ class ReviewStore:
             duration_ms=response.duration_ms,
             patch_chars=response.patch_chars,
             patch_preview=patch[:300],
+            summary=response.summary,
             comments=response.comments,
             comment_count=len(response.comments),
+            suppressed_count=response.suppressed_findings,
+            severity_counts=response.severity_counts,
             created_at=response.created_at,
         )
         with _lock:
             records = self._load()
             records.insert(0, json.loads(stored.model_dump_json()))
-            # Keep at most 500 reviews
             self._save(records[:500])
         return stored
 
@@ -94,6 +96,10 @@ class ReviewStore:
         with _lock:
             records = self._load()
         total_comments = sum(r.get("comment_count", 0) for r in records)
+        total_suppressed = sum(r.get("suppressed_count", 0) for r in records)
+        durations = [r.get("duration_ms", 0) for r in records if r.get("duration_ms")]
+        avg_duration = int(sum(durations) / len(durations)) if durations else 0
+
         engine_counts: dict = {}
         for r in records:
             e = r.get("engine", "unknown")
@@ -101,5 +107,7 @@ class ReviewStore:
         return {
             "total_reviews": len(records),
             "total_comments": total_comments,
+            "total_suppressed": total_suppressed,
+            "avg_processing_time_ms": avg_duration,
             "engine_breakdown": engine_counts,
         }

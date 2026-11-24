@@ -4,7 +4,7 @@ Pydantic schemas for request validation and response serialisation.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
@@ -36,6 +36,17 @@ class EngineMode(str, Enum):
     demo = "demo"
 
 
+# ── Verification Detail ───────────────────────────────────────────────────────
+
+class VerificationDetail(BaseModel):
+    is_verified: bool = True
+    grounding_score: float = 1.0
+    evidence_found: bool = True
+    identifiers_verified: List[str] = Field(default_factory=list)
+    unverified_identifiers: List[str] = Field(default_factory=list)
+    verification_notes: Optional[str] = None
+
+
 # ── Review request ─────────────────────────────────────────────────────────────
 
 class ReviewRequest(BaseModel):
@@ -43,6 +54,8 @@ class ReviewRequest(BaseModel):
     oldf: Optional[str] = Field(None, description="Optional original source file for context")
     engine: Optional[str] = Field(None, description="Override the configured engine")
     max_comments: int = Field(5, ge=1, le=10, description="Maximum number of comments to return")
+    language: Optional[str] = Field(None, description="Optional programming language of the snippet")
+    verify_hallucinations: bool = Field(True, description="Run hallucination and grounding verification")
 
     @field_validator("patch")
     @classmethod
@@ -61,9 +74,12 @@ class ReviewComment(BaseModel):
     category: Category = Category.general
     suggestion: Optional[str] = None
     line: Optional[int] = None
+    end_line: Optional[int] = None
     file_path: Optional[str] = None
     code_snippet: Optional[str] = None
     confidence: Optional[float] = None
+    evidence_assessment: Optional[str] = None
+    verification: Optional[VerificationDetail] = None
 
 
 # ── Review response ────────────────────────────────────────────────────────────
@@ -71,11 +87,23 @@ class ReviewComment(BaseModel):
 class ReviewResponse(BaseModel):
     review_id: str
     status: str = "success"
+    summary: Optional[str] = None
+    language: Optional[str] = None
     engine: str
     mode: EngineMode
     duration_ms: int
     patch_chars: int
+    files_analyzed: int = 1
+    files_skipped: int = 0
+    lines_analyzed: int = 0
     comments: List[ReviewComment]
+    suppressed_findings: int = 0
+    severity_counts: Dict[str, int] = Field(default_factory=lambda: {
+        "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0
+    })
+    coverage: Dict[str, Any] = Field(default_factory=dict)
+    verification: Dict[str, Any] = Field(default_factory=dict)
+    limitations: List[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -88,8 +116,11 @@ class StoredReview(BaseModel):
     duration_ms: int
     patch_chars: int
     patch_preview: str          # first 300 chars of the patch
+    summary: Optional[str] = None
     comments: List[ReviewComment]
     comment_count: int
+    suppressed_count: int = 0
+    severity_counts: Dict[str, int] = Field(default_factory=dict)
     created_at: datetime
 
 
@@ -104,6 +135,7 @@ class ModelStatus(BaseModel):
     training_status: str = "not_started"
     configuration_errors: List[str] = []
     notes: List[str] = []
+    groq_status: Optional[Dict[str, Any]] = None
 
 
 # ── GitHub PR ──────────────────────────────────────────────────────────────────
@@ -118,21 +150,20 @@ class GitHubTokenStatus(BaseModel):
 
 
 class GitHubPRRequest(BaseModel):
-    repo_url: str = Field(..., description="GitHub repository URL or owner/repo format")
-    pr_number: int = Field(..., ge=1)
+    pr_url: Optional[str] = Field(None, description="Full GitHub PR URL (e.g. https://github.com/owner/repo/pull/123)")
+    repo_url: Optional[str] = Field(None, description="GitHub repository URL or owner/repo format")
+    pr_number: Optional[int] = Field(None, ge=1)
     engine: Optional[str] = None
     max_comments: int = Field(5, ge=1, le=10)
-    max_files: Optional[int] = Field(3, ge=1, le=100, description="Max changed files to review (or None/0 for all)")
+    max_files: Optional[int] = Field(5, ge=1, le=100, description="Max changed files to review")
     review_all_files: bool = Field(False, description="If true, review all supported files ignoring max_files")
 
-    @field_validator("repo_url")
+    @field_validator("repo_url", mode="before")
     @classmethod
-    def validate_repo_url(cls, v: str) -> str:
-        s = v.strip().rstrip("/")
-        # Allow owner/repo format (e.g. facebook/react) or full URLs
-        if "/" not in s:
-            raise ValueError("repo_url must be a GitHub URL or 'owner/repo' format")
-        return s
+    def validate_repo_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            return v.strip().rstrip("/")
+        return v
 
 
 class GitHubPRFile(BaseModel):
@@ -156,6 +187,9 @@ class GitHubPRInfo(BaseModel):
     author: str
     base_branch: str
     head_branch: str
+    base_sha: Optional[str] = None
+    head_sha: Optional[str] = None
+    description: Optional[str] = None
     files: List[GitHubPRFile]
     total_changed_files: int = 0
     total_fetched_files: int = 0
@@ -164,12 +198,17 @@ class GitHubPRInfo(BaseModel):
 
 class GitHubReviewResponse(BaseModel):
     pr_info: GitHubPRInfo
+    summary: Optional[str] = None
     total_files_changed: int
     total_files_fetched: int
     total_files_reviewed: int
     skipped_files: List[GitHubSkippedFile] = Field(default_factory=list)
     file_reviews: List[ReviewResponse]
-    engine_used: str = "ollama"
+    severity_counts: Dict[str, int] = Field(default_factory=lambda: {
+        "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0
+    })
+    total_suppressed_findings: int = 0
+    engine_used: str = "groq"
     token_authenticated: bool = False
 
 
@@ -203,6 +242,8 @@ class DatasetAuditReport(BaseModel):
 class DashboardStats(BaseModel):
     total_reviews: int
     total_comments: int
+    total_suppressed: int = 0
+    avg_processing_time_ms: int = 0
     engine_breakdown: dict
     recent_reviews: List[StoredReview]
     model_status: ModelStatus

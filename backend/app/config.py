@@ -25,8 +25,13 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # ── Review engine ────────────────────────────────────────────────────────
-    # Options: "ollama" | "demo" | "openai" | "anthropic" | "finetuned"
-    REVIEW_ENGINE: str = "ollama"
+    # Options: "groq" | "ollama" | "demo" | "openai" | "anthropic" | "finetuned"
+    REVIEW_ENGINE: str = "groq"
+
+    # ── Groq API ─────────────────────────────────────────────────────────────
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "qwen/qwen3.8-27b"
+    GROQ_TIMEOUT: int = 60
 
     # ── Local Ollama ─────────────────────────────────────────────────────────
     OLLAMA_BASE_URL: str = "http://localhost:11434"
@@ -61,8 +66,10 @@ class Settings(BaseSettings):
 
     @property
     def active_engine(self) -> str:
-        """Return the actually configured engine, falling back to demo."""
+        """Return the actually configured engine, falling back cleanly."""
         engine = self.REVIEW_ENGINE.lower()
+        if engine == "groq":
+            return "groq" if self.GROQ_API_KEY else "demo"
         if engine == "ollama":
             return "ollama"
         if engine == "openai" and not self.OPENAI_API_KEY:
