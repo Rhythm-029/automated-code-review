@@ -88,6 +88,7 @@ export function SettingsPage() {
                 value={engine}
                 onChange={(e) => setEngine(e.target.value)}
               >
+                <option value="groq">Groq Cloud AI (qwen/qwen3.8-27b · Fast Free-Tier)</option>
                 <option value="ollama">Ollama Local LLM (qwen2.5-coder:7b)</option>
                 <option value="demo">Demo Engine (Heuristic rule-based)</option>
               </select>

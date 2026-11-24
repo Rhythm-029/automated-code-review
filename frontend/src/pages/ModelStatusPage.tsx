@@ -54,7 +54,7 @@ export function ModelStatusPage() {
           <Cpu size={24} color="var(--accent-primary)" /> Model Status & Health
         </h2>
         <p className="page-subtitle">
-          Real-time inference engine and local Ollama connection diagnostics.
+          Real-time inference engine diagnostics for Groq Cloud AI and local Ollama.
         </p>
       </div>
 
@@ -68,6 +68,37 @@ export function ModelStatusPage() {
         <div className="alert alert-error">
           <AlertTriangle size={16} />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Groq Cloud AI Health Banner */}
+      {status?.groq_status && (
+        <div
+          className="panel-card"
+          style={{
+            marginBottom: '20px',
+            borderLeft: status.groq_status.configured
+              ? '4px solid var(--success)'
+              : '4px solid var(--danger)',
+          }}
+        >
+          <div className="panel-card-header">
+            <span className="panel-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Cpu size={18} color="var(--accent-primary)" /> Groq Cloud AI Engine (Primary)
+            </span>
+            {status.groq_status.configured ? (
+              <span className="stat-badge-pill badge-online">Active · Free-Tier LPU</span>
+            ) : (
+              <span className="stat-badge-pill badge-pending">API Key Missing</span>
+            )}
+          </div>
+          <div className="panel-card-body" style={{ fontSize: '0.85rem', lineHeight: '1.8' }}>
+            <div>Active Model: <strong>{status.groq_status.model}</strong></div>
+            <div>Inference Architecture: <strong>LPU High-Speed Cloud Inference</strong></div>
+            <div style={{ color: 'var(--text-muted)' }}>
+              Configured via backend <code>GROQ_API_KEY</code>. Free-tier compatible with automatic rate-limit handling and hallucination screening.
+            </div>
+          </div>
         </div>
       )}
 

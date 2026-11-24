@@ -3,7 +3,7 @@ Pydantic schemas for request validation and response serialisation.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
@@ -104,7 +104,7 @@ class ReviewResponse(BaseModel):
     coverage: Dict[str, Any] = Field(default_factory=dict)
     verification: Dict[str, Any] = Field(default_factory=dict)
     limitations: List[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ── Stored review ──────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ class DatasetSplitStats(BaseModel):
 
 
 class DatasetAuditReport(BaseModel):
-    audit_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    audit_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     splits: List[DatasetSplitStats]
     cross_split_patch_comment_overlaps: Optional[dict] = None
     notes: List[str] = []
