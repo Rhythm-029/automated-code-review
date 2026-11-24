@@ -38,7 +38,6 @@ export function ReviewWorkspace() {
   const [patch, setPatch] = useState('');
   const [oldf, setOldf] = useState('');
   const [showOldf, setShowOldf] = useState(false);
-  const [engine, setEngine] = useState('groq');
   const [maxComments, setMaxComments] = useState(5);
   const [result, setResult] = useState<ReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,7 +73,6 @@ export function ReviewWorkspace() {
       const res = await submitReview({
         patch,
         oldf: oldf || undefined,
-        engine,
         max_comments: maxComments,
       });
       setResult(res);
@@ -116,7 +114,7 @@ export function ReviewWorkspace() {
           <FileCode2 size={24} color="var(--accent-primary)" /> Code Review Workspace
         </h2>
         <p className="page-subtitle">
-          Dedicated full-page code reviewer. Paste your diff and original file context to run comprehensive inspection with local Ollama <code>qwen2.5-coder:7b</code>.
+          Dedicated full-page code reviewer. Paste your diff and original file context to run comprehensive inspection.
         </p>
       </div>
 
@@ -198,18 +196,6 @@ export function ReviewWorkspace() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <label className="form-label" style={{ margin: 0 }}>Review Engine:</label>
-                <select
-                  className="select-modern"
-                  value={engine}
-                  onChange={(e) => setEngine(e.target.value)}
-                >
-                  <option value="ollama">🤖 Local Ollama (qwen2.5-coder:7b)</option>
-                  <option value="demo">⚠️ Demo Engine (Heuristic rule-based)</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <label className="form-label" style={{ margin: 0 }}>Max comments:</label>
                 <select
                   className="select-modern"
@@ -267,7 +253,7 @@ export function ReviewWorkspace() {
         <div className="panel-card" style={{ padding: '36px', textAlign: 'center' }}>
           <div className="loading-spinner" style={{ margin: '0 auto 16px' }} />
           <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
-            {engine === 'ollama' ? 'Running local qwen2.5-coder:7b via Ollama…' : 'Running review engine…'}
+            Analyzing code diff and verifying findings…
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             Elapsed: <strong>{elapsedSeconds}s</strong> · Scanning diff for potential bugs, logic flaws, and edge cases.

@@ -133,8 +133,8 @@ export function GitHubReviewPage() {
           <GitPullRequest size={24} color="var(--accent-primary)" /> GitHub Pull Request Review
         </h2>
         <p className="page-subtitle">
-          Securely fetch public or private pull requests with pagination support, inspect diff hunks, and run automated code review with Ollama <code>qwen2.5-coder:7b</code>.
-          This feature is strictly read-only and never posts review comments to GitHub.
+          Securely fetch public or private pull requests with pagination support, inspect diff hunks, and generate actionable code review feedback.
+          This feature is strictly read-only and never posts review comments to GitHub without approval.
         </p>
       </div>
 

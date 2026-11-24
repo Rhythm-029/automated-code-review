@@ -4,9 +4,7 @@ import { Header } from './components/Header';
 import { Dashboard } from './pages/Dashboard';
 import { ReviewWorkspace } from './pages/ReviewWorkspace';
 import { ReviewHistory } from './pages/ReviewHistory';
-import { ModelStatusPage } from './pages/ModelStatusPage';
 import { GitHubReviewPage } from './pages/GitHubReviewPage';
-import { DatasetStatusPage } from './pages/DatasetStatusPage';
 import { SettingsPage } from './pages/SettingsPage';
 import './index.css';
 
@@ -14,9 +12,7 @@ export type Page =
   | 'dashboard'
   | 'review'
   | 'history'
-  | 'model'
   | 'github'
-  | 'dataset'
   | 'settings';
 
 function App() {
@@ -27,9 +23,7 @@ function App() {
       case 'dashboard':  return <Dashboard onNavigate={setCurrentPage} />;
       case 'review':     return <ReviewWorkspace />;
       case 'history':    return <ReviewHistory onNavigate={setCurrentPage} />;
-      case 'model':      return <ModelStatusPage />;
       case 'github':     return <GitHubReviewPage />;
-      case 'dataset':    return <DatasetStatusPage />;
       case 'settings':   return <SettingsPage />;
       default:           return <Dashboard onNavigate={setCurrentPage} />;
     }

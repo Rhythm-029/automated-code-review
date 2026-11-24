@@ -4,15 +4,13 @@ import {
   Code2,
   GitPullRequest,
   History,
-  Cpu,
   Settings,
-  ChevronRight,
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
 } from 'lucide-react';
 import type { Page } from '../App';
-import { fetchHealth, fetchOllamaHealth, fetchGitHubStatus } from '../services/api';
+import { fetchHealth, fetchGitHubStatus } from '../services/api';
 
 interface Props {
   currentPage: Page;
@@ -22,37 +20,23 @@ interface Props {
 export function Sidebar({ currentPage, onNavigate }: Props) {
   const [healthStatus, setHealthStatus] = useState({
     backend: true,
-    ollama: true,
     github: true,
     db: true,
   });
-  const [activeEngineName, setActiveEngineName] = useState('Ollama');
-  const [activeModelName, setActiveModelName] = useState('qwen2.5-coder:7b');
 
   useEffect(() => {
-    // Check real system health
     Promise.allSettled([
       fetchHealth(),
-      fetchOllamaHealth(),
       fetchGitHubStatus(),
-    ]).then(([hRes, oRes, gRes]) => {
+    ]).then(([hRes, gRes]) => {
       const backendOk = hRes.status === 'fulfilled' && hRes.value.status === 'ok';
-      const ollamaOk = oRes.status === 'fulfilled' && oRes.value.ollama_reachable;
       const ghOk = gRes.status === 'fulfilled' && gRes.value.configured && gRes.value.valid;
 
       setHealthStatus({
         backend: backendOk,
-        ollama: ollamaOk,
         github: ghOk,
-        db: true, // Local JSON store is active
+        db: true,
       });
-
-      if (oRes.status === 'fulfilled' && oRes.value.target_model) {
-        setActiveModelName(oRes.value.target_model);
-      }
-      if (hRes.status === 'fulfilled' && hRes.value.active_engine) {
-        setActiveEngineName(hRes.value.active_engine === 'ollama' ? 'Ollama' : 'Demo Engine');
-      }
     });
   }, []);
 
@@ -61,13 +45,12 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
     { id: 'review' as Page, label: 'Code Review', icon: Code2 },
     { id: 'github' as Page, label: 'GitHub PR', icon: GitPullRequest },
     { id: 'history' as Page, label: 'Review History', icon: History },
-    { id: 'model' as Page, label: 'Model Status', icon: Cpu },
     { id: 'settings' as Page, label: 'Settings', icon: Settings },
   ];
 
   return (
     <aside className="sidebar">
-      {/* Brand Logo matching screenshot */}
+      {/* Brand Logo */}
       <div className="sidebar-logo-area">
         <div className="logo-icon-box">
           <Code2 size={20} strokeWidth={2.5} />
@@ -76,7 +59,7 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
           <div className="logo-text-title">
             CodeReview <span>AI</span>
           </div>
-          <div className="logo-text-sub">Smarter Code. Better Software.</div>
+          <div className="logo-text-sub">Automated Code Review Platform</div>
         </div>
       </div>
 
@@ -95,38 +78,11 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
         ))}
       </div>
 
-      {/* Lower Sidebar Widgets matching screenshot */}
+      {/* Lower Sidebar Health Widget */}
       <div className="sidebar-widgets">
-        {/* Active Engine Card */}
-        <div
-          className="engine-widget-card"
-          onClick={() => onNavigate('model')}
-          title="Click to view Model Status"
-        >
-          <div className="engine-widget-header">
-            <span className="engine-widget-title">
-              <span className="engine-pulse-dot" />
-              Active Engine
-            </span>
-          </div>
-          <div className="engine-widget-body">
-            <div className="engine-widget-info">
-              <div className="engine-icon-avatar">
-                <Cpu size={16} />
-              </div>
-              <div>
-                <div className="engine-widget-name">{activeEngineName}</div>
-                <div className="engine-widget-model">{activeModelName}</div>
-              </div>
-            </div>
-            <ChevronRight size={15} color="var(--text-muted)" />
-          </div>
-        </div>
-
-        {/* System Health Card */}
         <div className="health-widget-card">
           <div className="health-widget-header">
-            <span>🛡️ System Health</span>
+            <span>🛡️ System Status</span>
           </div>
           <div className="health-status-list">
             <div className="health-status-row">
@@ -136,24 +92,10 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
                 ) : (
                   <AlertTriangle size={13} className="health-icon-warn" />
                 )}
-                Backend API
+                Review Service
               </span>
               <span style={{ fontSize: '0.7rem', color: healthStatus.backend ? 'var(--success)' : 'var(--warning)' }}>
-                {healthStatus.backend ? 'Online' : 'Degraded'}
-              </span>
-            </div>
-
-            <div className="health-status-row">
-              <span className="health-status-left">
-                {healthStatus.ollama ? (
-                  <CheckCircle2 size={13} className="health-icon-ok" />
-                ) : (
-                  <AlertTriangle size={13} className="health-icon-warn" />
-                )}
-                Ollama Service
-              </span>
-              <span style={{ fontSize: '0.7rem', color: healthStatus.ollama ? 'var(--success)' : 'var(--warning)' }}>
-                {healthStatus.ollama ? 'Online' : 'Offline'}
+                {healthStatus.backend ? 'Operational' : 'Degraded'}
               </span>
             </div>
 
@@ -167,14 +109,14 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
                 GitHub API
               </span>
               <span style={{ fontSize: '0.7rem', color: healthStatus.github ? 'var(--success)' : 'var(--warning)' }}>
-                {healthStatus.github ? 'Verified' : 'Public'}
+                {healthStatus.github ? 'Connected' : 'Public'}
               </span>
             </div>
 
             <div className="health-status-row">
               <span className="health-status-left">
                 <CheckCircle2 size={13} className="health-icon-ok" />
-                Database
+                History Store
               </span>
               <span style={{ fontSize: '0.7rem', color: 'var(--success)' }}>
                 Ready
