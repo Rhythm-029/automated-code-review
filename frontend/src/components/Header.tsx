@@ -154,7 +154,7 @@ export function Header({ onNavigate }: Props) {
                     <div>
                       <div style={{ fontWeight: 600 }}>GitHub Token Verified</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-                        Authenticated as @Rhythm-029 (5,000 req/hr quota).
+                        API Quota: 5,000 req/hr enabled.
                       </div>
                     </div>
                   </div>

@@ -66,7 +66,7 @@ export function SettingsPage() {
                 <ShieldCheck size={20} color="var(--success)" />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                    Authenticated as @{githubStatus?.username || 'Rhythm-029'}
+                    Personal Access Token Active
                   </div>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     Remaining API Quota: {githubStatus?.rate_limit_remaining ?? 5000} / 5,000 requests/hr

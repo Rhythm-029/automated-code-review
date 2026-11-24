@@ -154,7 +154,7 @@ export function GitHubReviewPage() {
                 {tokenLoading && 'Checking token configuration...'}
                 {!tokenLoading && tokenStatus?.valid && (
                   <span>
-                    Authenticated as <strong>@{tokenStatus.username}</strong> • Personal Access Token active
+                    Personal Access Token active • Higher rate limit enabled
                   </span>
                 )}
                 {!tokenLoading && !tokenStatus?.valid && tokenStatus?.configured && (
