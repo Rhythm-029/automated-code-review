@@ -70,13 +70,8 @@ export async function fetchStats(): Promise<DashboardStats> {
 
 // ── Health ─────────────────────────────────────────────────────────────────
 
-export async function fetchHealth(): Promise<{ status: string; active_engine?: string; ollama_reachable?: boolean }> {
+export async function fetchHealth(): Promise<{ status: string; active_engine?: string }> {
   const { data } = await api.get('/api/health');
-  return data;
-}
-
-export async function fetchOllamaHealth(): Promise<OllamaHealth> {
-  const { data } = await api.get<OllamaHealth>('/api/health/ollama');
   return data;
 }
 

@@ -142,9 +142,9 @@ export function Header({ onNavigate }: Props) {
                   <div style={{ display: 'flex', gap: '10px', fontSize: '0.8rem' }}>
                     <CheckCircle2 size={16} color="var(--success)" style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                      <div style={{ fontWeight: 600 }}>Ollama Service Connected</div>
+                      <div style={{ fontWeight: 600 }}>Review Engine Ready</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-                        Local model <code>qwen2.5-coder:7b</code> active and ready.
+                        Automated review pipeline operational.
                       </div>
                     </div>
                   </div>
@@ -329,7 +329,7 @@ export function Header({ onNavigate }: Props) {
                       </div>
                     </div>
                     <span className="badge-cat-tag" style={{ fontSize: '0.72rem' }}>
-                      {r.engine}
+                      Automated Review
                     </span>
                   </div>
                 ))

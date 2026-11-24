@@ -237,11 +237,6 @@ export function ReviewWorkspace() {
               <AlertTriangle size={16} />
               <div>
                 <strong>Error executing review:</strong> {error}
-                {error.toLowerCase().includes('ollama') && (
-                  <div style={{ marginTop: '6px', fontSize: '0.8rem', opacity: 0.9 }}>
-                    💡 Tip: Make sure Ollama is running at <code>http://localhost:11434</code> with <code>qwen2.5-coder:7b</code>.
-                  </div>
-                )}
               </div>
             </div>
           )}

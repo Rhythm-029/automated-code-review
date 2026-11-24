@@ -595,7 +595,7 @@ export function Dashboard({ onNavigate }: Props) {
                         <Zap size={15} />
                       </div>
                       <div>
-                        <div className="activity-title-text">Model switched to Ollama</div>
+                        <div className="activity-title-text">Grounding verification active</div>
                         <div className="activity-time-text">1 hour ago</div>
                       </div>
                     </div>
@@ -647,8 +647,8 @@ export function Dashboard({ onNavigate }: Props) {
                 <div className="quick-start-step">
                   <span className="step-number-circle step-num-2">2</span>
                   <div>
-                    <div className="step-content-title">Select review engine</div>
-                    <div className="step-content-desc">Choose Ollama or other engines</div>
+                    <div className="step-content-title">Select options</div>
+                    <div className="step-content-desc">Choose language and max comments</div>
                   </div>
                 </div>
 

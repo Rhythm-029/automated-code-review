@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Clock,
   Layers,
   FileCheck,
   FileX2,
@@ -25,7 +24,6 @@ export function GitHubReviewPage() {
   const [repoUrl, setRepoUrl] = useState('');
   const [prNumber, setPrNumber] = useState('');
   const [prUrl, setPrUrl] = useState('');
-  const [engine, setEngine] = useState<'groq' | 'ollama' | 'demo'>('groq');
   const [fileLimitSelection, setFileLimitSelection] = useState<string>('3');
   const [tokenStatus, setTokenStatus] = useState<GitHubTokenStatus | null>(null);
   const [tokenLoading, setTokenLoading] = useState<boolean>(true);
@@ -81,7 +79,6 @@ export function GitHubReviewPage() {
 
   const isAllFiles = fileLimitSelection === 'all';
   const numericMaxFiles = isAllFiles ? 100 : parseInt(fileLimitSelection, 10);
-  const showDurationWarning = isAllFiles || numericMaxFiles > 3;
 
   const handleSubmit = async () => {
     if (!prUrl.trim() && (!repoUrl.trim() || !prNumber.trim())) {
@@ -99,7 +96,6 @@ export function GitHubReviewPage() {
         pr_url: prUrl.trim() || undefined,
         repo_url: repoUrl.trim() || undefined,
         pr_number: num,
-        engine,
         max_comments: 5,
         max_files: numericMaxFiles,
         review_all_files: isAllFiles,
@@ -258,29 +254,18 @@ export function GitHubReviewPage() {
           </div>
 
           <div className="grid-2" style={{ marginTop: '10px', marginBottom: '16px' }}>
-            <div className="form-group">
-              <label className="form-label">Review Engine</label>
-              <select
-                className="form-input"
-                value={engine}
-                onChange={(e) => setEngine(e.target.value as 'ollama' | 'demo')}
-              >
-                <option value="ollama">Ollama (qwen2.5-coder:7b) — Real Local LLM</option>
-                <option value="demo">Demo Engine (Fast heuristic inspection)</option>
-              </select>
-            </div>
-            <div className="form-group">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Review Scope & File Limit</label>
               <select
                 className="form-input"
                 value={fileLimitSelection}
                 onChange={(e) => setFileLimitSelection(e.target.value)}
               >
-                <option value="1">1 changed file (Fastest — ~20s)</option>
-                <option value="2">2 changed files (Quick — ~40s)</option>
-                <option value="3">3 changed files (Default — ~1m)</option>
-                <option value="5">Up to 5 changed files (~1.5–2m)</option>
-                <option value="10">Up to 10 changed files (~3–4m)</option>
+                <option value="1">1 changed file (Fastest)</option>
+                <option value="2">2 changed files (Quick)</option>
+                <option value="3">3 changed files (Default)</option>
+                <option value="5">Up to 5 changed files</option>
+                <option value="10">Up to 10 changed files</option>
                 <option value="all">⚡ Review ALL supported files (Full PR review)</option>
               </select>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
@@ -288,32 +273,6 @@ export function GitHubReviewPage() {
               </span>
             </div>
           </div>
-
-          {/* Performance warning for large reviews */}
-          {showDurationWarning && engine === 'ollama' && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                padding: '12px 16px',
-                background: 'rgba(234, 179, 8, 0.08)',
-                border: '1px solid rgba(234, 179, 8, 0.25)',
-                borderRadius: '6px',
-                marginBottom: '16px',
-                fontSize: '0.82rem',
-                color: '#facc15',
-              }}
-            >
-              <Clock size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong>Extended Processing Notice:</strong> Running automated review on{' '}
-                {isAllFiles ? 'all files' : `${numericMaxFiles} files`} using local{' '}
-                <code>qwen2.5-coder:7b</code> performs deep AST and hunk analysis per file (~15–25s per file).
-                Reviewing a large pull request may take several minutes to complete.
-              </div>
-            </div>
-          )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
@@ -349,7 +308,7 @@ export function GitHubReviewPage() {
         <div className="panel-card" style={{ padding: '36px', textAlign: 'center', marginBottom: '24px' }}>
           <div className="loading-spinner" style={{ margin: '0 auto 16px' }} />
           <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
-            {engine === 'ollama' ? 'Analyzing Pull Request with qwen2.5-coder:7b...' : 'Analyzing Pull Request with Demo Engine...'}
+            Analyzing Pull Request changes and diff hunks…
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             Fetching changed files via GitHub API (with pagination), inspecting diff hunks, and generating review comments ({elapsedSeconds}s)
@@ -428,7 +387,7 @@ export function GitHubReviewPage() {
                   ['Author', `@${result.pr_info.author}`],
                   ['State', result.pr_info.state.toUpperCase()],
                   ['Branches', `${result.pr_info.head_branch} → ${result.pr_info.base_branch}`],
-                  ['Engine Used', result.engine_used || engine],
+                  ['Review Pipeline', 'Automated Verification'],
                 ].map(([k, v]) => (
                   <div
                     key={String(k)}

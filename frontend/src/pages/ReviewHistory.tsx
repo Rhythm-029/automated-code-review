@@ -163,7 +163,6 @@ export function ReviewHistory({ onNavigate }: Props) {
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span className="badge-cat-tag">{r.engine}</span>
                         <span className="badge-sev-info">{r.comment_count} comments</span>
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                           {fmt(r.created_at)}
