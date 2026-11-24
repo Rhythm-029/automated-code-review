@@ -43,8 +43,9 @@ export function ReviewHistory({ onNavigate }: Props) {
       await deleteReview(id);
       if (selected?.review_id === id) setSelected(null);
       setReviews((prev) => prev.filter((r) => r.review_id !== id));
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? err.message);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: string } }; message?: string };
+      setError(errorObj?.response?.data?.detail ?? errorObj.message ?? 'Failed to delete review');
     } finally {
       setDeleting(null);
     }

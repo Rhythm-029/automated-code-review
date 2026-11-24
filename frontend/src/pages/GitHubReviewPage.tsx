@@ -58,7 +58,7 @@ export function GitHubReviewPage() {
   }, []);
 
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (loading) {
       setElapsedSeconds(0);
       timer = setInterval(() => {
@@ -101,10 +101,11 @@ export function GitHubReviewPage() {
         review_all_files: isAllFiles,
       });
       setResult(res);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const detail = err?.response?.data?.detail;
-      const detailMsg = typeof detail === 'string' ? detail : (detail?.message || JSON.stringify(detail) || err.message);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { status?: number; data?: { detail?: unknown } }; message?: string };
+      const status = errorObj?.response?.status;
+      const detail = errorObj?.response?.data?.detail;
+      const detailMsg = typeof detail === 'string' ? detail : (typeof detail === 'object' ? JSON.stringify(detail) : errorObj.message || 'An error occurred');
 
       if (status === 401) {
         setError(`Authentication Failed (401): ${detailMsg}. Please check GITHUB_TOKEN in .env.`);

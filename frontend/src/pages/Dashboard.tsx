@@ -112,9 +112,10 @@ export function Dashboard({ onNavigate }: Props) {
       setReviewDuration(res.duration_ms);
       // Refresh real stats and recent history
       loadData();
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail) || err.message);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: unknown } }; message?: string };
+      const detail = errorObj?.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : JSON.stringify(detail) || errorObj.message || 'Review failed');
     } finally {
       setReviewing(false);
     }

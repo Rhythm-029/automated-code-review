@@ -47,7 +47,7 @@ export function ReviewWorkspace() {
 
   // Timer while loading local model inference
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (loading) {
       setElapsedSeconds(0);
       interval = setInterval(() => {
@@ -76,9 +76,10 @@ export function ReviewWorkspace() {
         max_comments: maxComments,
       });
       setResult(res);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail) ?? err.message);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { detail?: unknown } }; message?: string };
+      const detail = errorObj?.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : JSON.stringify(detail) ?? errorObj.message ?? 'Review failed');
     } finally {
       setLoading(false);
     }
