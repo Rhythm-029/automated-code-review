@@ -171,15 +171,6 @@ export function Header({ onNavigate }: Props) {
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
-
-          {/* User Profile Avatar */}
-          <div
-            className="user-avatar-circle"
-            title="Logged in as halfcuptea"
-            style={{ cursor: 'pointer', boxShadow: '0 2px 6px rgba(129, 140, 248, 0.4)' }}
-          >
-            H
-          </div>
         </div>
       </header>
 

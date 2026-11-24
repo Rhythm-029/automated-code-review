@@ -7,7 +7,6 @@ import {
   Settings,
   CheckCircle2,
   AlertTriangle,
-  ChevronDown,
 } from 'lucide-react';
 import type { Page } from '../App';
 import { fetchHealth, fetchGitHubStatus } from '../services/api';
@@ -126,16 +125,11 @@ export function Sidebar({ currentPage, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* User Profile Footer */}
-      <div className="sidebar-user-footer">
-        <div className="user-profile-left">
-          <div className="user-avatar-circle">H</div>
-          <div>
-            <div className="user-name-text">halfcuptea</div>
-            <div className="user-sub-text">BTech Capstone</div>
-          </div>
-        </div>
-        <ChevronDown size={14} color="var(--text-muted)" />
+      {/* Clean Status Footer */}
+      <div className="sidebar-user-footer" style={{ justifyContent: 'center' }}>
+        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+          Automated Code Review • v1.0
+        </span>
       </div>
     </aside>
   );
