@@ -4,12 +4,10 @@ import type {
   ReviewRequest,
   ReviewResponse,
   StoredReview,
-  ModelStatus,
   DashboardStats,
   GitHubPRRequest,
   GitHubReviewResponse,
   GitHubTokenStatus,
-  DatasetAuditReport,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -54,13 +52,6 @@ export async function deleteReview(id: string): Promise<void> {
   await api.delete(`/api/reviews/${id}`);
 }
 
-// ── Model status ───────────────────────────────────────────────────────────
-
-export async function fetchModelStatus(): Promise<ModelStatus> {
-  const { data } = await api.get<ModelStatus>('/api/model/status');
-  return data;
-}
-
 // ── Dashboard stats ────────────────────────────────────────────────────────
 
 export async function fetchStats(): Promise<DashboardStats> {
@@ -84,12 +75,5 @@ export async function fetchGitHubStatus(): Promise<GitHubTokenStatus> {
 
 export async function reviewGitHubPR(req: GitHubPRRequest): Promise<GitHubReviewResponse> {
   const { data } = await api.post<GitHubReviewResponse>('/api/github/pull-request', req);
-  return data;
-}
-
-// ── Dataset audit ──────────────────────────────────────────────────────────
-
-export async function fetchDatasetAudit(): Promise<DatasetAuditReport> {
-  const { data } = await api.get<DatasetAuditReport>('/api/dataset/audit');
   return data;
 }

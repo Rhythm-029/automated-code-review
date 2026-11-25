@@ -81,23 +81,6 @@ export interface StoredReview {
   created_at: string;
 }
 
-export interface ModelStatus {
-  configured_engine: string;
-  active_engine: string;
-  mode: EngineMode;
-  model_identifier?: string | null;
-  checkpoint_loaded: boolean;
-  training_status: string;
-  configuration_errors: string[];
-  notes: string[];
-  groq_status?: {
-    model: string;
-    configured: boolean;
-    provider?: string;
-    speed?: string;
-  } | null;
-}
-
 export interface DashboardStats {
   total_reviews: number;
   total_comments: number;
@@ -105,8 +88,7 @@ export interface DashboardStats {
   avg_processing_time_ms: number;
   engine_breakdown: Record<string, number>;
   recent_reviews: StoredReview[];
-  model_status: ModelStatus;
-  dataset_files_present: boolean;
+  dataset_files_present?: boolean;
 }
 
 export interface GitHubTokenStatus {
