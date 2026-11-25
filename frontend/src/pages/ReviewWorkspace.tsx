@@ -278,7 +278,6 @@ export function ReviewWorkspace() {
                 <CheckCircle2 size={16} color="var(--success)" />
                 <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Review Completed</span>
               </div>
-              <span className="badge-cat-tag">Engine: {result.engine}</span>
               <span className="badge-cat-tag">Comments: {result.comments.length}</span>
               <span className="badge-cat-tag">Duration: {(result.duration_ms / 1000).toFixed(1)}s</span>
             </div>
